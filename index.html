@@ -1131,7 +1131,7 @@
                 </div>
                                 <div class="stat-item">
                     <span class="stat-label">Survivant</span>
-                     <span class="stat-value" id="survivalRateStat">0%</span>
+                    <span class="stat-value" id="survivalRateStat">0%</span>
                 </div>
                 <div class="stat-item">
                     <span class="stat-label">Trahisons</span>
@@ -1194,757 +1194,727 @@
             </div>
         </div>
     </div>
-       <!-- Jeu -->
-<div class="game-container" id="gameContainer">
-    <canvas class="game-canvas" id="gameCanvas"></canvas>
-    <div class="game-ui">
-        <div class="player-info">
-            <div class="player-name" id="playerNameDisplay">...</div>
-            <div class="player-role" id="playerRoleDisplay">...</div>
-            <div class="player-health">
-                <span>❤️</span>
-                <div class="health-bar">
-                    <div class="health-fill" id="healthFill"></div>
-                </div>
-            </div>
-        </div>
-        <div class="game-message" id="gameMessage">
-            Chargement de la partie...
-        </div>
-        <div class="game-controls">
-            <div class="control-button" id="abilityBtn">⚡</div>
-            <div class="control-button" id="interactBtn">✋</div>
-            <div class="control-button" id="voiceBtn">🎙️</div>
-            <div class="control-button" id="mapBtn">🗺️</div>
-        </div>
-        <div class="game-map">
-            <div class="map-grid" id="mapGrid">
-                <!-- Les cellules de la carte seront générées dynamiquement -->
-            </div>
-        </div>
-    </div>
-</div>
 
-<!-- Scripts -->
-<script>
-    // Variables globales
-    let socket = io("https://cd2f6128-78a4-4a16-b714-146b6125ba23-00-ukdflvqzkigb.spock.replit.dev/");
-    let currentUser = {
-        id: '',
-        name: 'Joueur ' + Math.floor(Math.random() * 1000),
-        stats: {
-            gamesPlayed: 0,
+       <!-- Scripts -->
+    <script>
+        // Variables globales
+        let socket = io("https://b135ab09-2147-418c-9bd1-b4647afb1ea0-00-2uc77k91elzl4.riker.replit.dev/");
+        let currentUser = {
+            id: '',
+            name: 'Joueur ' + Math.floor(Math.random() * 1000),
+            stats: {
+                gamesPlayed: 0,
+                kills: 0,
+                betrayals: 0,
+                survivalRate: 0,
+                rank: "Nouveau"
+            }
+        };
+        let gameRoom = null;
+        let players = {};
+        let currentPlayer = {
+            id: '',
+            name: '',
+            role: '',
+            target: '',
+            health: 100,
+            x: 0,
+            y: 0,
             kills: 0,
-            betrayals: 0,
-            survivalRate: 0,
-            rank: "Nouveau"
-        }
-    };
-    let gameRoom = null;
-    let players = {};
-    let currentPlayer = {
-        id: '',
-        name: '',
-        role: '',
-        target: '',
-        health: 100,
-        x: 0,
-        y: 0,
-        kills: 0,
-        alive: true
-    };
-    let gameState = 'waiting'; // waiting, playing, ended
-    let keys = {};
-    let gameLoopInterval;
-    let mapWidth = 1000;
-    let mapHeight = 1000;
-    let environment = [];
+            alive: true
+        };
+        let gameState = 'waiting'; // waiting, playing, ended
+        let keys = {};
+        let gameLoopInterval;
+        let mapWidth = 1000;
+        let mapHeight = 1000;
+        let environment = [];
 
-    // Gestion des modals
-    const loginModal = document.getElementById('loginModal');
-    const signupModal = document.getElementById('signupModal');
-    const loginBtn = document.getElementById('loginBtn');
-    const signupBtn = document.getElementById('signupBtn');
-    const closeModal = document.getElementsByClassName('close-modal');
-    const switchToSignup = document.getElementById('switchToSignup');
-    const switchToLogin = document.getElementById('switchToLogin');
-    const playNowBtn = document.getElementById('playNowBtn');
-    const lobbyContainer = document.getElementById('lobbyContainer');
-    const gameContainer = document.getElementById('gameContainer');
-    const loadingScreen = document.getElementById('loadingScreen');
-    const roomsListContainer = document.getElementById('roomsListContainer');
-    const createRoomBtn = document.getElementById('createRoomBtn');
-    const quickJoinBtn = document.getElementById('quickJoinBtn');
-    const refreshRoomsBtn = document.getElementById('refreshRoomsBtn');
+        // Gestion des modals
+        const loginModal = document.getElementById('loginModal');
+        const signupModal = document.getElementById('signupModal');
+        const loginBtn = document.getElementById('loginBtn');
+        const signupBtn = document.getElementById('signupBtn');
+        const closeModal = document.getElementsByClassName('close-modal');
+        const switchToSignup = document.getElementById('switchToSignup');
+        const switchToLogin = document.getElementById('switchToLogin');
+        const playNowBtn = document.getElementById('playNowBtn');
+        const lobbyContainer = document.getElementById('lobbyContainer');
+        const gameContainer = document.getElementById('gameContainer');
+        const loadingScreen = document.getElementById('loadingScreen');
+        const roomsListContainer = document.getElementById('roomsListContainer');
+        const createRoomBtn = document.getElementById('createRoomBtn');
+        const quickJoinBtn = document.getElementById('quickJoinBtn');
+        const refreshRoomsBtn = document.getElementById('refreshRoomsBtn');
 
-    // Générer un ID unique pour le joueur
-    currentUser.id = 'player_' + Math.random().toString(36).substr(2, 9);
-    currentPlayer.id = currentUser.id;
-    currentPlayer.name = currentUser.name;
-
-    // Cacher l'écran de chargement après 1s (simulation)
-    setTimeout(() => {
-        loadingScreen.style.display = 'none';
-    }, 1000);
-
-    // Écouter les événements du serveur
-    socket.on('connect', () => {
-        console.log('Connecté au serveur Socket.io');
-        currentUser.id = socket.id;
+        // Générer un ID unique pour le joueur
+        currentUser.id = 'player_' + Math.random().toString(36).substr(2, 9);
         currentPlayer.id = currentUser.id;
-        updatePlayerStats();
-        loadRooms();
-    });
+        currentPlayer.name = currentUser.name;
 
-    socket.on('roomsList', (rooms) => {
-        updateRoomsList(rooms);
-    });
+        // Cacher l'écran de chargement après 1s (simulation)
+        setTimeout(() => {
+            loadingScreen.style.display = 'none';
+        }, 1000);
 
-    socket.on('roomCreated', (room) => {
-        joinRoom(room.id);
-    });
-
-    socket.on('roomJoined', (room) => {
-        gameRoom = room;
-        players = room.players;
-        
-        // Cacher le lobby et afficher le jeu
-        lobbyContainer.style.display = 'none';
-        gameContainer.style.display = 'block';
-        
-        // Initialiser le jeu
-        initGame(room.id);
-        
-        loadingScreen.style.display = 'none';
-    });
-
-    socket.on('playerJoined', (player) => {
-        players[player.id] = player;
-    });
-
-    socket.on('playerLeft', (playerId) => {
-        delete players[playerId];
-    });
-
-    socket.on('gameStarted', (room) => {
-        gameState = 'playing';
-        startGame(room);
-    });
-
-    socket.on('playerUpdate', (playerData) => {
-        if (players[playerData.id]) {
-            players[playerData.id] = { ...players[playerData.id], ...playerData };
-        }
-    });
-
-    socket.on('gameEnded', (winnerId) => {
-        gameState = 'ended';
-        endGame(winnerId);
-    });
-
-    socket.on('playerKilled', (data) => {
-        if (players[data.playerId]) {
-            players[data.playerId].alive = false;
-        }
-        
-        if (data.killerId === currentUser.id) {
-            currentPlayer.kills++;
+        // Écouter les événements du serveur
+        socket.on('connect', () => {
+            console.log('Connecté au serveur Socket.io');
+            currentUser.id = socket.id;
+            currentPlayer.id = currentUser.id;
             updatePlayerStats();
+            loadRooms();
+        });
+
+        socket.on('roomsList', (rooms) => {
+            updateRoomsList(rooms);
+        });
+
+        socket.on('roomCreated', (room) => {
+            joinRoom(room.id);
+        });
+
+        socket.on('roomJoined', (room) => {
+            gameRoom = room;
+            players = room.players;
             
+            // Cacher le lobby et afficher le jeu
+            lobbyContainer.style.display = 'none';
+            gameContainer.style.display = 'block';
+            
+            // Initialiser le jeu
+            initGame(room.id);
+            
+            loadingScreen.style.display = 'none';
+        });
+
+        socket.on('playerJoined', (player) => {
+            players[player.id] = player;
+        });
+
+        socket.on('playerLeft', (playerId) => {
+            delete players[playerId];
+        });
+
+        socket.on('gameStarted', (room) => {
+            gameState = 'playing';
+            startGame(room);
+        });
+
+        socket.on('playerUpdate', (playerData) => {
+            if (players[playerData.id]) {
+                players[playerData.id] = { ...players[playerData.id], ...playerData };
+            }
+        });
+
+        socket.on('gameEnded', (winnerId) => {
+            gameState = 'ended';
+            endGame(winnerId);
+        });
+
+        socket.on('playerKilled', (data) => {
+            if (players[data.playerId]) {
+                players[data.playerId].alive = false;
+            }
+            
+            if (data.killerId === currentUser.id) {
+                currentPlayer.kills++;
+                updatePlayerStats();
+                
+                const gameMessage = document.getElementById('gameMessage');
+                gameMessage.textContent = `Vous avez éliminé ${getPlayerName(data.playerId)}!`;
+                gameMessage.classList.add('show');
+                
+                setTimeout(() => {
+                    gameMessage.classList.remove('show');
+                }, 3000);
+            }
+            
+            checkGameEnd();
+        });
+
+        // Afficher le modal de connexion
+        loginBtn.onclick = function() {
+            loginModal.style.display = 'flex';
+            signupModal.style.display = 'none';
+        }
+
+        // Afficher le modal d'inscription
+        signupBtn.onclick = function() {
+            signupModal.style.display = 'flex';
+            loginModal.style.display = 'none';
+        }
+
+        // Basculer entre connexion et inscription
+        switchToSignup.onclick = function(e) {
+            e.preventDefault();
+            signupModal.style.display = 'flex';
+            loginModal.style.display = 'none';
+        }
+
+        switchToLogin.onclick = function(e) {
+            e.preventDefault();
+            loginModal.style.display = 'flex';
+            signupModal.style.display = 'none';
+        }
+
+        // Fermer les modals
+        for (let i = 0; i < closeModal.length; i++) {
+            closeModal[i].onclick = function() {
+                loginModal.style.display = 'none';
+                signupModal.style.display = 'none';
+            }
+        }
+
+        // Fermer quand on clique en dehors
+        window.onclick = function(event) {
+            if (event.target == loginModal) {
+                loginModal.style.display = 'none';
+            }
+            if (event.target == signupModal) {
+                signupModal.style.display = 'none';
+            }
+        }
+
+        // Connexion (simplifiée pour Socket.io)
+        document.getElementById('loginForm').onsubmit = function(e) {
+            e.preventDefault();
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            loadingScreen.style.display = 'flex';
+            
+            // Simulation de connexion réussie
+            setTimeout(() => {
+                currentUser.name = email.split('@')[0];
+                currentPlayer.name = currentUser.name;
+                loginModal.style.display = 'none';
+                loadingScreen.style.display = 'none';
+                
+                // Afficher le lobby
+                lobbyContainer.style.display = 'block';
+                document.querySelector('header').style.display = 'none';
+                document.querySelector('.hero').style.display = 'none';
+                document.querySelector('.features').style.display = 'none';
+                document.querySelector('.gameplay').style.display = 'none';
+                document.querySelector('footer').style.display = 'none';
+            }, 1000);
+        }
+
+        // Inscription (simplifiée pour Socket.io)
+        document.getElementById('signupForm').onsubmit = function(e) {
+            e.preventDefault();
+            const username = document.getElementById('signupUsername').value;
+            const email = document.getElementById('signupEmail').value;
+            const password = document.getElementById('signupPassword').value;
+            const confirmPassword = document.getElementById('signupConfirmPassword').value;
+            
+            if (password !== confirmPassword) {
+                alert("Les mots de passe ne correspondent pas!");
+                return;
+            }
+            
+            loadingScreen.style.display = 'flex';
+            
+            // Simulation d'inscription réussie
+            setTimeout(() => {
+                currentUser.name = username;
+                currentPlayer.name = currentUser.name;
+                signupModal.style.display = 'none';
+                loadingScreen.style.display = 'none';
+                
+                // Afficher le lobby
+                lobbyContainer.style.display = 'block';
+                document.querySelector('header').style.display = 'none';
+                document.querySelector('.hero').style.display = 'none';
+                document.querySelector('.features').style.display = 'none';
+                document.querySelector('.gameplay').style.display = 'none';
+                document.querySelector('footer').style.display = 'none';
+            }, 1000);
+        }
+
+        // Bouton Jouer maintenant
+        playNowBtn.onclick = function() {
+            loadingScreen.style.display = 'flex';
+            
+            // Simulation de connexion anonyme
+            setTimeout(() => {
+                currentUser.name = 'Joueur ' + Math.floor(Math.random() * 1000);
+                currentPlayer.name = currentUser.name;
+                loadingScreen.style.display = 'none';
+                
+                // Afficher le lobby
+                lobbyContainer.style.display = 'block';
+                document.querySelector('header').style.display = 'none';
+                document.querySelector('.hero').style.display = 'none';
+                document.querySelector('.features').style.display = 'none';
+                document.querySelector('.gameplay').style.display = 'none';
+                document.querySelector('footer').style.display = 'none';
+            }, 1000);
+        }
+
+        // Charger les salles disponibles
+        function loadRooms() {
+            roomsListContainer.innerHTML = '<div class="loading-text">Chargement des salles...</div>';
+            socket.emit('getRooms');
+        }
+
+        // Mettre à jour la liste des salles
+        function updateRoomsList(rooms) {
+            roomsListContainer.innerHTML = '';
+            
+            if (!rooms || rooms.length === 0) {
+                roomsListContainer.innerHTML = '<div class="no-rooms">Aucune salle disponible. Créez-en une!</div>';
+                return;
+            }
+            
+            rooms.forEach(room => {
+                addRoomToList(room);
+            });
+        }
+
+        // Ajouter une salle à la liste
+        function addRoomToList(room) {
+            const roomElement = document.createElement('div');
+            roomElement.className = 'room-item';
+            roomElement.innerHTML = `
+                <div class="room-info">
+                    <div class="room-name">${room.name}</div>
+                    <div class="room-details">
+                        <span>${Object.keys(room.players || {}).length}/${room.maxPlayers} joueurs</span>
+                        <span>Mode: ${room.gameMode}</span>
+                        <span>Durée: ${room.duration} min</span>
+                    </div>
+                </div>
+                <div class="room-actions">
+                    <button data-room-id="${room.id}">Rejoindre</button>
+                </div>
+            `;
+            
+            roomsListContainer.appendChild(roomElement);
+            
+            // Ajouter l'événement de clic
+            roomElement.querySelector('button').addEventListener('click', function() {
+                joinRoom(room.id);
+            });
+        }
+
+        // Rafraîchir la liste des salles
+        refreshRoomsBtn.onclick = function() {
+            loadRooms();
+        };
+
+        // Créer une nouvelle salle
+        createRoomBtn.onclick = function() {
+            const roomName = prompt("Nom de la salle:", "Salle de " + currentUser.name);
+            if (!roomName) return;
+            
+            loadingScreen.style.display = 'flex';
+            
+            const roomData = {
+                name: roomName,
+                creator: currentUser.id,
+                gameMode: 'Trahison Classique',
+                maxPlayers: 8,
+                duration: 10,
+                players: {
+                    [currentUser.id]: {
+                        id: currentUser.id,
+                        name: currentUser.name,
+                        ready: false,
+                        x: 0,
+                        y: 0,
+                        health: 100,
+                        alive: true
+                    }
+                }
+            };
+            
+            socket.emit('createRoom', roomData);
+        };
+
+        // Rejoindre une salle rapidement
+        quickJoinBtn.onclick = function() {
+            loadingScreen.style.display = 'flex';
+            socket.emit('quickJoin', currentUser);
+        };
+
+        // Rejoindre une salle spécifique
+        function joinRoom(roomId) {
+            loadingScreen.style.display = 'flex';
+            
+            const playerData = {
+                id: currentUser.id,
+                name: currentUser.name,
+                ready: false,
+                x: 0,
+                y: 0,
+                health: 100,
+                alive: true
+            };
+            
+            socket.emit('joinRoom', { roomId, player: playerData });
+        }
+
+        // Mettre à jour les statistiques du joueur
+        function updatePlayerStats() {
+            document.getElementById('gamesPlayedStat').textContent = currentUser.stats.gamesPlayed || 0;
+            document.getElementById('killsStat').textContent = currentUser.stats.kills || 0;
+            document.getElementById('betrayalsStat').textContent = currentUser.stats.betrayals || 0;
+            document.getElementById('survivalRateStat').textContent = (currentUser.stats.survivalRate || 0) + '%';
+            document.getElementById('rankStat').textContent = currentUser.stats.rank || 'Nouveau';
+            document.getElementById('nextLevelStat').textContent = (currentUser.stats.nextLevel || 0) + '%';
+            
+            // Mettre à jour les succès
+            if (currentUser.stats.kills > 0) {
+                document.getElementById('firstBloodAchievement').textContent = '✔';
+            }
+            if (currentUser.stats.betrayals > 10) {
+                document.getElementById('masterTraitorAchievement').textContent = '✔';
+            }
+            if (currentUser.stats.survivalRate > 50) {
+                document.getElementById('ghostAchievement').textContent = '✔';
+            }
+        }
+
+        // Initialiser le jeu
+        function initGame(roomId) {
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Ajuster la taille du canvas
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            
+            // Configurer le joueur actuel
+            currentPlayer.id = currentUser.id;
+            currentPlayer.name = currentUser.name;
+            currentPlayer.health = 100;
+            currentPlayer.alive = true;
+            
+            // Position aléatoire
+            currentPlayer.x = Math.floor(Math.random() * (mapWidth - 200)) + 100;
+            currentPlayer.y = Math.floor(Math.random() * (mapHeight - 200)) + 100;
+            
+            // Générer la minimap
+            generateMinimap();
+            
+            // Afficher le message de jeu
             const gameMessage = document.getElementById('gameMessage');
-            gameMessage.textContent = `Vous avez éliminé ${getPlayerName(data.playerId)}!`;
+            gameMessage.textContent = "En attente des autres joueurs...";
+            gameMessage.classList.add('show');
+            
+            // Mettre à jour l'interface
+            document.getElementById('playerNameDisplay').textContent = currentPlayer.name;
+            document.getElementById('playerRoleDisplay').textContent = "En attente du rôle...";
+            document.getElementById('healthFill').style.width = '100%';
+            
+            // Envoyer la position initiale au serveur
+            socket.emit('playerUpdate', {
+                roomId: roomId,
+                playerId: currentUser.id,
+                x: currentPlayer.x,
+                y: currentPlayer.y,
+                health: currentPlayer.health,
+                alive: true
+            });
+        }
+
+        // Démarrer le jeu
+        function startGame(room) {
+            // Assigner les rôles et les cibles
+            assignRoles(room);
+            
+            // Mettre à jour l'interface
+            document.getElementById('playerRoleDisplay').textContent = 
+                `${currentPlayer.role} (Cible: ${getPlayerName(currentPlayer.target)})`;
+            
+            // Afficher le message de début
+            const gameMessage = document.getElementById('gameMessage');
+            gameMessage.textContent = `Vous êtes ${currentPlayer.role}. Trouvez et éliminez ${getPlayerName(currentPlayer.target)}!`;
             gameMessage.classList.add('show');
             
             setTimeout(() => {
                 gameMessage.classList.remove('show');
-            }, 3000);
-        }
-        
-        checkGameEnd();
-    });
-
-    // Afficher le modal de connexion
-    loginBtn.onclick = function() {
-        loginModal.style.display = 'flex';
-        signupModal.style.display = 'none';
-    }
-
-    // Afficher le modal d'inscription
-    signupBtn.onclick = function() {
-        signupModal.style.display = 'flex';
-        loginModal.style.display = 'none';
-    }
-
-    // Basculer entre connexion et inscription
-    switchToSignup.onclick = function(e) {
-        e.preventDefault();
-        signupModal.style.display = 'flex';
-        loginModal.style.display = 'none';
-    }
-
-    switchToLogin.onclick = function(e) {
-        e.preventDefault();
-        loginModal.style.display = 'flex';
-        signupModal.style.display = 'none';
-    }
-
-    // Fermer les modals
-    for (let i = 0; i < closeModal.length; i++) {
-        closeModal[i].onclick = function() {
-            loginModal.style.display = 'none';
-            signupModal.style.display = 'none';
-        }
-    }
-
-    // Fermer quand on clique en dehors
-    window.onclick = function(event) {
-        if (event.target == loginModal) {
-            loginModal.style.display = 'none';
-        }
-        if (event.target == signupModal) {
-            signupModal.style.display = 'none';
-        }
-    }
-
-    // Connexion (simplifiée pour Socket.io)
-    document.getElementById('loginForm').onsubmit = function(e) {
-        e.preventDefault();
-        const email = document.getElementById('loginEmail').value;
-        const password = document.getElementById('loginPassword').value;
-        
-        loadingScreen.style.display = 'flex';
-        
-        // Simulation de connexion réussie
-        setTimeout(() => {
-            currentUser.name = email.split('@')[0];
-            currentPlayer.name = currentUser.name;
-            loginModal.style.display = 'none';
-            loadingScreen.style.display = 'none';
+            }, 5000);
             
-            // Afficher le lobby
-            lobbyContainer.style.display = 'block';
-            document.querySelector('header').style.display = 'none';
-            document.querySelector('.hero').style.display = 'none';
-            document.querySelector('.features').style.display = 'none';
-            document.querySelector('.gameplay').style.display = 'none';
-            document.querySelector('footer').style.display = 'none';
-        }, 1000);
-    }
-
-    // Inscription (simplifiée pour Socket.io)
-    document.getElementById('signupForm').onsubmit = function(e) {
-        e.preventDefault();
-        const username = document.getElementById('signupUsername').value;
-        const email = document.getElementById('signupEmail').value;
-        const password = document.getElementById('signupPassword').value;
-        const confirmPassword = document.getElementById('signupConfirmPassword').value;
-        
-        if (password !== confirmPassword) {
-            alert("Les mots de passe ne correspondent pas!");
-            return;
-        }
-        
-        loadingScreen.style.display = 'flex';
-        
-        // Simulation d'inscription réussie
-        setTimeout(() => {
-            currentUser.name = username;
-            currentPlayer.name = currentUser.name;
-            signupModal.style.display = 'none';
-            loadingScreen.style.display = 'none';
+            // Démarrer la boucle de jeu
+            gameLoopInterval = setInterval(updateGame, 1000/60);
             
-            // Afficher le lobby
-            lobbyContainer.style.display = 'block';
-            document.querySelector('header').style.display = 'none';
-            document.querySelector('.hero').style.display = 'none';
-            document.querySelector('.features').style.display = 'none';
-            document.querySelector('.gameplay').style.display = 'none';
-            document.querySelector('footer').style.display = 'none';
-        }, 1000);
-    }
-
-    // Bouton Jouer maintenant
-    playNowBtn.onclick = function() {
-        loadingScreen.style.display = 'flex';
-        
-        // Simulation de connexion anonyme
-        setTimeout(() => {
-            currentUser.name = 'Joueur ' + Math.floor(Math.random() * 1000);
-            currentPlayer.name = currentUser.name;
-            loadingScreen.style.display = 'none';
-            
-            // Afficher le lobby
-            lobbyContainer.style.display = 'block';
-            document.querySelector('header').style.display = 'none';
-            document.querySelector('.hero').style.display = 'none';
-            document.querySelector('.features').style.display = 'none';
-            document.querySelector('.gameplay').style.display = 'none';
-            document.querySelector('footer').style.display = 'none';
-        }, 1000);
-    }
-
-    // Charger les salles disponibles
-    function loadRooms() {
-        roomsListContainer.innerHTML = '<div class="loading-text">Chargement des salles...</div>';
-        socket.emit('getRooms');
-    }
-
-    // Mettre à jour la liste des salles
-    function updateRoomsList(rooms) {
-        roomsListContainer.innerHTML = '';
-        
-        if (!rooms || rooms.length === 0) {
-            roomsListContainer.innerHTML = '<div class="no-rooms">Aucune salle disponible. Créez-en une!</div>';
-            return;
+            // Configurer les contrôles
+            setupControls();
         }
-        
-        rooms.forEach(room => {
-            addRoomToList(room);
-        });
-    }
 
-    // Ajouter une salle à la liste
-    function addRoomToList(room) {
-        const roomElement = document.createElement('div');
-        roomElement.className = 'room-item';
-        roomElement.innerHTML = `
-            <div class="room-info">
-                <div class="room-name">${room.name}</div>
-                <div class="room-details">
-                    <span>${Object.keys(room.players || {}).length}/${room.maxPlayers} joueurs</span>
-                    <span>Mode: ${room.gameMode}</span>
-                    <span>Durée: ${room.duration} min</span>
-                </div>
-            </div>
-            <div class="room-actions">
-                <button data-room-id="${room.id}">Rejoindre</button>
-            </div>
-        `;
-        
-        roomsListContainer.appendChild(roomElement);
-        
-        // Ajouter l'événement de clic
-        roomElement.querySelector('button').addEventListener('click', function() {
-            joinRoom(room.id);
-        });
-    }
-
-    // Rafraîchir la liste des salles
-    refreshRoomsBtn.onclick = function() {
-        loadRooms();
-    };
-
-    // Créer une nouvelle salle
-    createRoomBtn.onclick = function() {
-        const roomName = prompt("Nom de la salle:", "Salle de " + currentUser.name);
-        if (!roomName) return;
-        
-        loadingScreen.style.display = 'flex';
-        
-        const roomData = {
-            name: roomName,
-            creator: currentUser.id,
-            gameMode: 'Trahison Classique',
-            maxPlayers: 8,
-            duration: 10,
-            players: {
-                [currentUser.id]: {
-                    id: currentUser.id,
-                    name: currentUser.name,
-                    ready: false,
-                    x: 0,
-                    y: 0,
-                    health: 100,
-                    alive: true
+        // Assigner les rôles aux joueurs
+        function assignRoles(room) {
+            const playerIds = Object.keys(room.players);
+            
+            // Pour simplifier, nous allons assigner à chaque joueur le suivant comme cible
+            for (let i = 0; i < playerIds.length; i++) {
+                const playerId = playerIds[i];
+                const targetId = playerIds[(i + 1) % playerIds.length];
+                
+                if (playerId === currentUser.id) {
+                    currentPlayer.role = "Assassin";
+                    currentPlayer.target = targetId;
                 }
             }
-        };
-        
-        socket.emit('createRoom', roomData);
-    };
-
-    // Rejoindre une salle rapidement
-    quickJoinBtn.onclick = function() {
-        loadingScreen.style.display = 'flex';
-        socket.emit('quickJoin', currentUser);
-    };
-
-    // Rejoindre une salle spécifique
-    function joinRoom(roomId) {
-        loadingScreen.style.display = 'flex';
-        
-        const playerData = {
-            id: currentUser.id,
-            name: currentUser.name,
-            ready: false,
-            x: 0,
-            y: 0,
-            health: 100,
-            alive: true
-        };
-        
-        socket.emit('joinRoom', { roomId, player: playerData });
-    }
-
-    // Mettre à jour les statistiques du joueur
-    function updatePlayerStats() {
-        document.getElementById('gamesPlayedStat').textContent = currentUser.stats.gamesPlayed || 0;
-        document.getElementById('killsStat').textContent = currentUser.stats.kills || 0;
-        document.getElementById('betrayalsStat').textContent = currentUser.stats.betrayals || 0;
-        document.getElementById('survivalRateStat').textContent = (currentUser.stats.survivalRate || 0) + '%';
-        document.getElementById('rankStat').textContent = currentUser.stats.rank || 'Nouveau';
-        document.getElementById('nextLevelStat').textContent = (currentUser.stats.nextLevel || 0) + '%';
-        
-        // Mettre à jour les succès
-        if (currentUser.stats.kills > 0) {
-            document.getElementById('firstBloodAchievement').textContent = '✔';
         }
-        if (currentUser.stats.betrayals > 10) {
-            document.getElementById('masterTraitorAchievement').textContent = '✔';
-        }
-        if (currentUser.stats.survivalRate > 50) {
-            document.getElementById('ghostAchievement').textContent = '✔';
-        }
-    }
 
-    // Initialiser le jeu
-    function initGame(roomId) {
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        
-        // Ajuster la taille du canvas
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-        
-        // Configurer le joueur actuel
-        currentPlayer.id = currentUser.id;
-        currentPlayer.name = currentUser.name;
-        currentPlayer.health = 100;
-        currentPlayer.alive = true;
-        
-        // Position aléatoire
-        currentPlayer.x = Math.floor(Math.random() * (mapWidth - 200)) + 100;
-        currentPlayer.y = Math.floor(Math.random() * (mapHeight - 200)) + 100;
-        
-        // Générer la minimap
-        generateMinimap();
-        
-        // Afficher le message de jeu
-        const gameMessage = document.getElementById('gameMessage');
-        gameMessage.textContent = "En attente des autres joueurs...";
-        gameMessage.classList.add('show');
-        
-        // Mettre à jour l'interface
-        document.getElementById('playerNameDisplay').textContent = currentPlayer.name;
-        document.getElementById('playerRoleDisplay').textContent = "En attente du rôle...";
-        document.getElementById('healthFill').style.width = '100%';
-        
-        // Envoyer la position initiale au serveur
-        socket.emit('playerUpdate', {
-            roomId: roomId,
-            playerId: currentUser.id,
-            x: currentPlayer.x,
-            y: currentPlayer.y,
-            health: currentPlayer.health,
-            alive: true
-        });
-    }
-
-    // Démarrer le jeu
-    function startGame(room) {
-        // Assigner les rôles et les cibles
-        assignRoles(room);
-        
-        // Mettre à jour l'interface
-        document.getElementById('playerRoleDisplay').textContent = 
-            `${currentPlayer.role} (Cible: ${getPlayerName(currentPlayer.target)})`;
-        
-        // Afficher le message de début
-        const gameMessage = document.getElementById('gameMessage');
-        gameMessage.textContent = `Vous êtes ${currentPlayer.role}. Trouvez et éliminez ${getPlayerName(currentPlayer.target)}!`;
-        gameMessage.classList.add('show');
-        
-        setTimeout(() => {
-            gameMessage.classList.remove('show');
-        }, 5000);
-        
-        // Démarrer la boucle de jeu
-        gameLoopInterval = setInterval(updateGame, 1000/60);
-        
-        // Configurer les contrôles
-        setupControls();
-    }
-
-    // Assigner les rôles aux joueurs
-    function assignRoles(room) {
-        const playerIds = Object.keys(room.players);
-        
-        // Pour simplifier, nous allons assigner à chaque joueur le suivant comme cible
-        for (let i = 0; i < playerIds.length; i++) {
-            const playerId = playerIds[i];
-            const targetId = playerIds[(i + 1) % playerIds.length];
+        // Mettre à jour le jeu
+        function updateGame() {
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
             
-            if (playerId === currentUser.id) {
-                currentPlayer.role = "Assassin";
-                currentPlayer.target = targetId;
+            // Effacer le canvas
+            ctx.fillStyle = '#0f0f1a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Dessiner l'environnement
+            environment.forEach(obj => {
+                ctx.fillStyle = obj.color;
+                ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
+            });
+            
+            // Dessiner les autres joueurs
+            for (const playerId in players) {
+                if (playerId === currentUser.id) continue;
+                
+                const player = players[playerId];
+                if (!player.alive) continue;
+                
+                ctx.fillStyle = playerId === currentPlayer.target ? '#ff4d4d' : '#4d4dff';
+                ctx.beginPath();
+                ctx.arc(player.x, player.y, 15, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Dessiner le nom
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '12px Arial';
+                ctx.fillText(player.name, player.x - 20, player.y - 20);
             }
-        }
-    }
-
-    // Mettre à jour le jeu
-    function updateGame() {
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        
-        // Effacer le canvas
-        ctx.fillStyle = '#0f0f1a';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        // Dessiner l'environnement
-        environment.forEach(obj => {
-            ctx.fillStyle = obj.color;
-            ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
-        });
-        
-        // Dessiner les autres joueurs
-        for (const playerId in players) {
-            if (playerId === currentUser.id) continue;
             
-            const player = players[playerId];
-            if (!player.alive) continue;
-            
-            ctx.fillStyle = playerId === currentPlayer.target ? '#ff4d4d' : '#4d4dff';
+            // Dessiner le joueur actuel
+            ctx.fillStyle = '#f9cb28';
             ctx.beginPath();
-            ctx.arc(player.x, player.y, 15, 0, Math.PI * 2);
+            ctx.arc(currentPlayer.x, currentPlayer.y, 15, 0, Math.PI * 2);
             ctx.fill();
             
-            // Dessiner le nom
-            ctx.fillStyle = '#ffffff';
-            ctx.font = '12px Arial';
-            ctx.fillText(player.name, player.x - 20, player.y - 20);
+            // Mettre à jour la minimap
+            updateMinimap();
+            
+            // Mettre à jour la santé dans l'interface
+            document.getElementById('healthFill').style.width = `${currentPlayer.health}%`;
         }
-        
-        // Dessiner le joueur actuel
-        ctx.fillStyle = '#f9cb28';
-        ctx.beginPath();
-        ctx.arc(currentPlayer.x, currentPlayer.y, 15, 0, Math.PI * 2);
-        ctx.fill();
-        
+
+        // Configurer les contrôles
+        function setupControls() {
+            // Gestion des touches
+            window.addEventListener('keydown', (e) => {
+                keys[e.key] = true;
+            });
+            
+            window.addEventListener('keyup', (e) => {
+                keys[e.key] = false;
+            });
+            
+            // Contrôles tactiles
+            document.getElementById('abilityBtn').addEventListener('click', useAbility);
+            document.getElementById('interactBtn').addEventListener('click', interact);
+            document.getElementById('voiceBtn').addEventListener('click', toggleVoiceChat);
+            document.getElementById('mapBtn').addEventListener('click', toggleMap);
+            
+            // Boucle de déplacement
+            const moveLoop = setInterval(() => {
+                if (gameState !== 'playing') {
+                    clearInterval(moveLoop);
+                    return;
+                }
+                
+                let dx = 0, dy = 0;
+                if (keys.ArrowUp || keys.w) dy -= 3;
+                if (keys.ArrowDown || keys.s) dy += 3;
+                if (keys.ArrowLeft || keys.a) dx -= 3;
+                if (keys.ArrowRight || keys.d) dx += 3;
+                
+                // Normaliser les diagonales
+                if (dx !== 0 && dy !== 0) {
+                    dx *= 0.7071;
+                    dy *= 0.7071;
+                }
+                
+                // Mettre à jour la position
+                currentPlayer.x = Math.max(15, Math.min(mapWidth - 15, currentPlayer.x + dx));
+                currentPlayer.y = Math.max(15, Math.min(mapHeight - 15, currentPlayer.y + dy));
+                
+                // Envoyer la mise à jour au serveur
+                socket.emit('playerUpdate', {
+                    roomId: gameRoom.id,
+                    playerId: currentUser.id,
+                    x: currentPlayer.x,
+                    y: currentPlayer.y
+                });
+            }, 1000/60);
+        }
+
+        // Utiliser une capacité
+        function useAbility() {
+            if (gameState !== 'playing') return;
+            
+            // Vérifier si la cible est à portée
+            const target = players[currentPlayer.target];
+            if (!target || !target.alive) return;
+            
+            const distance = Math.hypot(currentPlayer.x - target.x, currentPlayer.y - target.y);
+            if (distance > 50) return;
+            
+            // Envoyer l'assassinat au serveur
+            socket.emit('killPlayer', {
+                roomId: gameRoom.id,
+                killerId: currentUser.id,
+                playerId: currentPlayer.target
+            });
+        }
+
+        // Interagir avec l'environnement
+        function interact() {
+            // À implémenter selon les besoins
+        }
+
+        // Activer/désactiver le chat vocal
+        function toggleVoiceChat() {
+            // À implémenter selon les besoins
+        }
+
+        // Afficher/masquer la carte
+        function toggleMap() {
+            const map = document.querySelector('.game-map');
+            map.style.display = map.style.display === 'none' ? 'block' : 'none';
+        }
+
+        // Vérifier si le jeu est terminé
+        function checkGameEnd() {
+            let alivePlayers = 0;
+            let lastAlivePlayer = null;
+            
+            for (const playerId in players) {
+                if (players[playerId].alive) {
+                    alivePlayers++;
+                    lastAlivePlayer = playerId;
+                }
+            }
+            
+            // Si un seul joueur en vie, fin du jeu
+            if (alivePlayers <= 1) {
+                socket.emit('endGame', {
+                    roomId: gameRoom.id,
+                    winnerId: lastAlivePlayer
+                });
+            }
+        }
+
+        // Terminer le jeu
+        function endGame(winnerId) {
+            clearInterval(gameLoopInterval);
+            
+            const gameMessage = document.getElementById('gameMessage');
+            
+            if (winnerId === currentUser.id) {
+                gameMessage.textContent = "VOUS AVEZ GAGNÉ!";
+                currentUser.stats.gamesPlayed = (currentUser.stats.gamesPlayed || 0) + 1;
+                currentUser.stats.survivalRate = ((currentUser.stats.survivalRate || 0) * (currentUser.stats.gamesPlayed - 1) + 100) / currentUser.stats.gamesPlayed;
+            } else {
+                gameMessage.textContent = `Le gagnant est ${getPlayerName(winnerId)}!`;
+                currentUser.stats.gamesPlayed = (currentUser.stats.gamesPlayed || 0) + 1;
+                currentUser.stats.survivalRate = ((currentUser.stats.survivalRate || 0) * (currentUser.stats.gamesPlayed - 1)) / currentUser.stats.gamesPlayed;
+            }
+            
+            gameMessage.classList.add('show');
+            updatePlayerStats();
+            
+            // Retour au lobby après 5 secondes
+            setTimeout(() => {
+                gameContainer.style.display = 'none';
+                lobbyContainer.style.display = 'block';
+            }, 5000);
+        }
+
+        // Générer la minimap
+        function generateMinimap() {
+            const mapGrid = document.getElementById('mapGrid');
+            mapGrid.innerHTML = '';
+            
+            // Créer 100 cellules (10x10)
+            for (let i = 0; i < 100; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'map-cell';
+                mapGrid.appendChild(cell);
+            }
+        }
+
         // Mettre à jour la minimap
-        updateMinimap();
-        
-        // Mettre à jour la santé dans l'interface
-        document.getElementById('healthFill').style.width = `${currentPlayer.health}%`;
-    }
+        function updateMinimap() {
+            const mapGrid = document.getElementById('mapGrid');
+            const cells = mapGrid.children;
+            
+            // Effacer les anciennes positions
+            for (let i = 0; i < cells.length; i++) {
+                const cell = cells[i];
+                cell.innerHTML = '';
+            }
+            
+            // Position du joueur sur la minimap
+            const playerCellX = Math.floor((currentPlayer.x / mapWidth) * 10);
+            const playerCellY = Math.floor((currentPlayer.y / mapHeight) * 10);
+            const playerCellIndex = playerCellY * 10 + playerCellX;
+            
+            if (playerCellIndex >= 0 && playerCellIndex < 100) {
+                const playerMarker = document.createElement('div');
+                playerMarker.className = 'map-player';
+                cells[playerCellIndex].appendChild(playerMarker);
+            }
+            
+            // Positions des autres joueurs
+            for (const playerId in players) {
+                if (playerId === currentUser.id) continue;
+                
+                const player = players[playerId];
+                if (!player.alive) continue;
+                
+                const cellX = Math.floor((player.x / mapWidth) * 10);
+                const cellY = Math.floor((player.y / mapHeight) * 10);
+                const cellIndex = cellY * 10 + cellX;
+                
+                if (cellIndex >= 0 && cellIndex < 100) {
+                    const enemyMarker = document.createElement('div');
+                    enemyMarker.className = 'map-enemy';
+                    cells[cellIndex].appendChild(enemyMarker);
+                }
+            }
+        }
 
-    // Configurer les contrôles
-    function setupControls() {
-        // Gestion des touches
-        window.addEventListener('keydown', (e) => {
-            keys[e.key] = true;
+        // Obtenir le nom d'un joueur
+        function getPlayerName(playerId) {
+            if (!playerId) return "Inconnu";
+            return players[playerId]?.name || "Joueur " + playerId.substring(0, 4);
+        }
+
+        // Gestion de la taille de la fenêtre
+        window.addEventListener('resize', () => {
+            const canvas = document.getElementById('gameCanvas');
+            if (canvas) {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
         });
-        
-        window.addEventListener('keyup', (e) => {
-            keys[e.key] = false;
-        });
-        
-        // Contrôles tactiles
-        document.getElementById('abilityBtn').addEventListener('click', useAbility);
-        document.getElementById('interactBtn').addEventListener('click', interact);
-        document.getElementById('voiceBtn').addEventListener('click', toggleVoiceChat);
-        document.getElementById('mapBtn').addEventListener('click', toggleMap);
-        
-        // Boucle de déplacement
-        const moveLoop = setInterval(() => {
-            if (gameState !== 'playing') {
-                clearInterval(moveLoop);
-                return;
-            }
-            
-            let dx = 0, dy = 0;
-            if (keys.ArrowUp || keys.w) dy -= 3;
-            if (keys.ArrowDown || keys.s) dy += 3;
-            if (keys.ArrowLeft || keys.a) dx -= 3;
-            if (keys.ArrowRight || keys.d) dx += 3;
-            
-            // Normaliser les diagonales
-            if (dx !== 0 && dy !== 0) {
-                dx *= 0.7071;
-                dy *= 0.7071;
-            }
-            
-            // Mettre à jour la position
-            currentPlayer.x = Math.max(15, Math.min(mapWidth - 15, currentPlayer.x + dx));
-            currentPlayer.y = Math.max(15, Math.min(mapHeight - 15, currentPlayer.y + dy));
-            
-            // Envoyer la mise à jour au serveur
-            socket.emit('playerUpdate', {
-                roomId: gameRoom.id,
-                playerId: currentUser.id,
-                x: currentPlayer.x,
-                y: currentPlayer.y
-            });
-        }, 1000/60);
-    }
 
-    // Utiliser une capacité
-    function useAbility() {
-        if (gameState !== 'playing') return;
+        // Détection de l'orientation
+        window.addEventListener('orientationchange', checkOrientation);
+        window.addEventListener('resize', checkOrientation);
         
-        // Vérifier si la cible est à portée
-        const target = players[currentPlayer.target];
-        if (!target || !target.alive) return;
-        
-        const distance = Math.hypot(currentPlayer.x - target.x, currentPlayer.y - target.y);
-        if (distance > 50) return;
-        
-        // Envoyer l'assassinat au serveur
-        socket.emit('killPlayer', {
-            roomId: gameRoom.id,
-            killerId: currentUser.id,
-            playerId: currentPlayer.target
-        });
-    }
-
-    // Interagir avec l'environnement
-    function interact() {
-        // À implémenter selon les besoins
-    }
-
-    // Activer/désactiver le chat vocal
-    function toggleVoiceChat() {
-        // À implémenter selon les besoins
-    }
-
-    // Afficher/masquer la carte
-    function toggleMap() {
-        const map = document.querySelector('.game-map');
-        map.style.display = map.style.display === 'none' ? 'block' : 'none';
-    }
-
-    // Vérifier si le jeu est terminé
-    function checkGameEnd() {
-        let alivePlayers = 0;
-        let lastAlivePlayer = null;
-        
-        for (const playerId in players) {
-            if (players[playerId].alive) {
-                alivePlayers++;
-                lastAlivePlayer = playerId;
-            }
+        function checkOrientation() {
+            // Cette fonction est gérée par le CSS media query
         }
-        
-        // Si un seul joueur en vie, fin du jeu
-        if (alivePlayers <= 1) {
-            socket.emit('endGame', {
-                roomId: gameRoom.id,
-                winnerId: lastAlivePlayer
-            });
-        }
-    }
-
-    // Terminer le jeu
-    function endGame(winnerId) {
-        clearInterval(gameLoopInterval);
-        
-        const gameMessage = document.getElementById('gameMessage');
-        
-        if (winnerId === currentUser.id) {
-            gameMessage.textContent = "VOUS AVEZ GAGNÉ!";
-            currentUser.stats.gamesPlayed = (currentUser.stats.gamesPlayed || 0) + 1;
-            currentUser.stats.survivalRate = ((currentUser.stats.survivalRate || 0) * (currentUser.stats.gamesPlayed - 1) + 100) / currentUser.stats.gamesPlayed;
-        } else {
-            gameMessage.textContent = `Le gagnant est ${getPlayerName(winnerId)}!`;
-            currentUser.stats.gamesPlayed = (currentUser.stats.gamesPlayed || 0) + 1;
-            currentUser.stats.survivalRate = ((currentUser.stats.survivalRate || 0) * (currentUser.stats.gamesPlayed - 1)) / currentUser.stats.gamesPlayed;
-        }
-        
-        gameMessage.classList.add('show');
-        updatePlayerStats();
-        
-        // Retour au lobby après 5 secondes
-        setTimeout(() => {
-            gameContainer.style.display = 'none';
-            lobbyContainer.style.display = 'block';
-        }, 5000);
-    }
-
-    // Générer la minimap
-    function generateMinimap() {
-        const mapGrid = document.getElementById('mapGrid');
-        mapGrid.innerHTML = '';
-        
-        // Créer 100 cellules (10x10)
-        for (let i = 0; i < 100; i++) {
-            const cell = document.createElement('div');
-            cell.className = 'map-cell';
-            mapGrid.appendChild(cell);
-        }
-    }
-
-    // Mettre à jour la minimap
-    function updateMinimap() {
-        const mapGrid = document.getElementById('mapGrid');
-        const cells = mapGrid.children;
-        
-        // Effacer les anciennes positions
-        for (let i = 0; i < cells.length; i++) {
-            const cell = cells[i];
-            cell.innerHTML = '';
-        }
-        
-        // Position du joueur sur la minimap
-        const playerCellX = Math.floor((currentPlayer.x / mapWidth) * 10);
-        const playerCellY = Math.floor((currentPlayer.y / mapHeight) * 10);
-        const playerCellIndex = playerCellY * 10 + playerCellX;
-        
-        if (playerCellIndex >= 0 && playerCellIndex < 100) {
-            const playerMarker = document.createElement('div');
-            playerMarker.className = 'map-player';
-            cells[playerCellIndex].appendChild(playerMarker);
-        }
-        
-        // Positions des autres joueurs
-        for (const playerId in players) {
-            if (playerId === currentUser.id) continue;
-            
-            const player = players[playerId];
-            if (!player.alive) continue;
-            
-            const cellX = Math.floor((player.x / mapWidth) * 10);
-            const cellY = Math.floor((player.y / mapHeight) * 10);
-            const cellIndex = cellY * 10 + cellX;
-            
-            if (cellIndex >= 0 && cellIndex < 100) {
-                const enemyMarker = document.createElement('div');
-                enemyMarker.className = 'map-enemy';
-                cells[cellIndex].appendChild(enemyMarker);
-            }
-        }
-    }
-
-    // Obtenir le nom d'un joueur
-    function getPlayerName(playerId) {
-        if (!playerId) return "Inconnu";
-        return players[playerId]?.name || "Joueur " + playerId.substring(0, 4);
-    }
-
-    // Gestion de la taille de la fenêtre
-    window.addEventListener('resize', () => {
-        const canvas = document.getElementById('gameCanvas');
-        if (canvas) {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        }
-    });
-
-    // Détection de l'orientation
-    window.addEventListener('orientationchange', checkOrientation);
-    window.addEventListener('resize', checkOrientation);
-    
-    function checkOrientation() {
-        // Cette fonction est gérée par le CSS media query
-    }
-</script>
+    </script>
 </body>
-</html> 
+</html>

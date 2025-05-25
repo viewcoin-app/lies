@@ -1129,9 +1129,9 @@
                     <span class="stat-label">Assassinats</span>
                     <span class="stat-value" id="killsStat">0</span>
                 </div>
-                                <div class="stat-item">
+                <div class="stat-item">
                     <span class="stat-label">Survivant</span>
-                                        <span class="stat-value" id="survivalRateStat">0%</span>
+                    <span class="stat-value" id="survivalRateStat">0%</span>
                 </div>
                 <div class="stat-item">
                     <span class="stat-label">Trahisons</span>
@@ -1194,7 +1194,8 @@
             </div>
         </div>
     </div>
-           <!-- Scripts -->
+    
+    <!-- Scripts -->
     <script>
         // Variables globales
         let socket = io("https://cd2f6128-78a4-4a16-b714-146b6125ba23-00-ukdflvqzkigb.spock.replit.dev/");
@@ -1222,7 +1223,7 @@
             kills: 0,
             alive: true
         };
-        let gameState = 'waiting'; // waiting, playing, ended
+        let gameState = 'waiting';
         let keys = {};
         let gameLoopInterval;
         let mapWidth = 1000;
@@ -1266,38 +1267,56 @@
         });
 
         socket.on('roomsList', (rooms) => {
+            console.log('Liste des salles reçue:', rooms);
             updateRoomsList(rooms);
         });
 
-        socket.on('roomCreated', (room) => {
-            joinRoom(room.id);
-        });
-
-        socket.on('roomJoined', (room) => {
-            gameRoom = room;
-            players = room.players;
+        socket.on('roomCreated', (data) => {
+            console.log('Salle créée reçue:', data);
             
-            // Cacher le lobby et afficher le jeu
+            // La salle a été créée avec succès, on affiche directement l'interface de jeu
+            gameRoom = data.room;
+            
+            // Mettre à jour l'interface
             lobbyContainer.style.display = 'none';
             gameContainer.style.display = 'block';
             
+            // Cacher les autres sections
+            document.querySelector('header').style.display = 'none';
+            document.querySelector('.hero').style.display = 'none';
+            document.querySelector('.features').style.display = 'none';
+            document.querySelector('.gameplay').style.display = 'none';
+            document.querySelector('footer').style.display = 'none';
+            
             // Initialiser le jeu
-            initGame(room.id);
+            initGame(data.roomId);
             
             loadingScreen.style.display = 'none';
         });
 
-        socket.on('playerJoined', (player) => {
-            players[player.id] = player;
+        socket.on('playerJoined', (data) => {
+            console.log('Joueur rejoint reçu:', data);
+            
+            if (data.room) {
+                gameRoom = data.room;
+                players = {};
+                
+                // Convertir le tableau de joueurs en objet
+                data.room.players.forEach(player => {
+                    players[player.id] = player;
+                });
+            }
         });
 
-        socket.on('playerLeft', (playerId) => {
-            delete players[playerId];
+        socket.on('playerLeft', (data) => {
+            if (data.playerId && players[data.playerId]) {
+                delete players[data.playerId];
+            }
         });
 
-        socket.on('gameStarted', (room) => {
+        socket.on('gameStarted', () => {
             gameState = 'playing';
-            startGame(room);
+            startGame();
         });
 
         socket.on('playerUpdate', (playerData) => {
@@ -1330,6 +1349,12 @@
             }
             
             checkGameEnd();
+        });
+
+        socket.on('error', (error) => {
+            console.error('Erreur du serveur:', error);
+            alert(error.message || 'Erreur du serveur');
+            loadingScreen.style.display = 'none';
         });
 
         // Afficher le modal de connexion
@@ -1391,12 +1416,7 @@
                 loadingScreen.style.display = 'none';
                 
                 // Afficher le lobby
-                lobbyContainer.style.display = 'block';
-                document.querySelector('header').style.display = 'none';
-                document.querySelector('.hero').style.display = 'none';
-                document.querySelector('.features').style.display = 'none';
-                document.querySelector('.gameplay').style.display = 'none';
-                document.querySelector('footer').style.display = 'none';
+                showLobby();
             }, 1000);
         }
 
@@ -1423,12 +1443,7 @@
                 loadingScreen.style.display = 'none';
                 
                 // Afficher le lobby
-                lobbyContainer.style.display = 'block';
-                document.querySelector('header').style.display = 'none';
-                document.querySelector('.hero').style.display = 'none';
-                document.querySelector('.features').style.display = 'none';
-                document.querySelector('.gameplay').style.display = 'none';
-                document.querySelector('footer').style.display = 'none';
+                showLobby();
             }, 1000);
         }
 
@@ -1443,13 +1458,18 @@
                 loadingScreen.style.display = 'none';
                 
                 // Afficher le lobby
-                lobbyContainer.style.display = 'block';
-                document.querySelector('header').style.display = 'none';
-                document.querySelector('.hero').style.display = 'none';
-                document.querySelector('.features').style.display = 'none';
-                document.querySelector('.gameplay').style.display = 'none';
-                document.querySelector('footer').style.display = 'none';
+                showLobby();
             }, 1000);
+        }
+
+        // Afficher le lobby
+        function showLobby() {
+            lobbyContainer.style.display = 'block';
+            document.querySelector('header').style.display = 'none';
+            document.querySelector('.hero').style.display = 'none';
+            document.querySelector('.features').style.display = 'none';
+            document.querySelector('.gameplay').style.display = 'none';
+            document.querySelector('footer').style.display = 'none';
         }
 
         // Charger les salles disponibles
@@ -1463,7 +1483,7 @@
             roomsListContainer.innerHTML = '';
             
             if (!rooms || rooms.length === 0) {
-                roomsListContainer.innerHTML = '<div class="no-rooms">Aucune salle disponible. Créez-en une!</div>';
+                roomsListContainer.innerHTML = '<div style="color: #b0b0b0; text-align: center; padding: 20px;">Aucune salle disponible. Créez-en une!</div>';
                 return;
             }
             
@@ -1480,9 +1500,8 @@
                 <div class="room-info">
                     <div class="room-name">${room.name}</div>
                     <div class="room-details">
-                        <span>${Object.keys(room.players || {}).length}/${room.maxPlayers} joueurs</span>
-                        <span>Mode: ${room.gameMode}</span>
-                        <span>Durée: ${room.duration} min</span>
+                        <span>${room.playerCount}/${room.maxPlayers} joueurs</span>
+                        <span>Mode: Classique</span>
                     </div>
                 </div>
                 <div class="room-actions">
@@ -1513,6 +1532,7 @@
             const roomData = {
                 name: roomName,
                 creator: currentUser.id,
+                playerName: currentUser.name,
                 gameMode: 'Trahison Classique',
                 maxPlayers: 8,
                 duration: 10,
@@ -1529,13 +1549,24 @@
                 }
             };
             
+            console.log('Création de salle avec données:', roomData);
             socket.emit('createRoom', roomData);
         };
 
         // Rejoindre une salle rapidement
         quickJoinBtn.onclick = function() {
             loadingScreen.style.display = 'flex';
-            socket.emit('quickJoin', currentUser);
+            socket.emit('quickJoin', {
+                player: {
+                    id: currentUser.id,
+                    name: currentUser.name,
+                    ready: false,
+                    x: 0,
+                    y: 0,
+                    health: 100,
+                    alive: true
+                }
+            });
         };
 
         // Rejoindre une salle spécifique
@@ -1543,16 +1574,21 @@
             loadingScreen.style.display = 'flex';
             
             const playerData = {
-                id: currentUser.id,
-                name: currentUser.name,
-                ready: false,
-                x: 0,
-                y: 0,
-                health: 100,
-                alive: true
+                roomId: roomId,
+                playerName: currentUser.name,
+                player: {
+                    id: currentUser.id,
+                    name: currentUser.name,
+                    ready: false,
+                    x: 0,
+                    y: 0,
+                    health: 100,
+                    alive: true
+                }
             };
             
-            socket.emit('joinRoom', { roomId, player: playerData });
+            console.log('Tentative de rejoindre la salle:', playerData);
+            socket.emit('joinRoom', playerData);
         }
 
         // Mettre à jour les statistiques du joueur
@@ -1600,29 +1636,29 @@
             
             // Afficher le message de jeu
             const gameMessage = document.getElementById('gameMessage');
-            gameMessage.textContent = "En attente des autres joueurs...";
+            gameMessage.textContent = "Salle créée! En attente des autres joueurs...";
             gameMessage.classList.add('show');
+            
+            setTimeout(() => {
+                gameMessage.classList.remove('show');
+            }, 3000);
             
             // Mettre à jour l'interface
             document.getElementById('playerNameDisplay').textContent = currentPlayer.name;
             document.getElementById('playerRoleDisplay').textContent = "En attente du rôle...";
             document.getElementById('healthFill').style.width = '100%';
             
-            // Envoyer la position initiale au serveur
-            socket.emit('playerUpdate', {
-                roomId: roomId,
-                playerId: currentUser.id,
-                x: currentPlayer.x,
-                y: currentPlayer.y,
-                health: currentPlayer.health,
-                alive: true
-            });
+            // Démarrer la boucle de rendu
+            gameLoopInterval = setInterval(updateGame, 1000/60);
+            
+            // Configurer les contrôles
+            setupControls();
         }
 
         // Démarrer le jeu
-        function startGame(room) {
+        function startGame() {
             // Assigner les rôles et les cibles
-            assignRoles(room);
+            assignRoles();
             
             // Mettre à jour l'interface
             document.getElementById('playerRoleDisplay').textContent = 
@@ -1636,17 +1672,11 @@
             setTimeout(() => {
                 gameMessage.classList.remove('show');
             }, 5000);
-            
-            // Démarrer la boucle de jeu
-            gameLoopInterval = setInterval(updateGame, 1000/60);
-            
-            // Configurer les contrôles
-            setupControls();
         }
 
         // Assigner les rôles aux joueurs
-        function assignRoles(room) {
-            const playerIds = Object.keys(room.players);
+        function assignRoles() {
+            const playerIds = Object.keys(players);
             
             // Pour simplifier, nous allons assigner à chaque joueur le suivant comme cible
             for (let i = 0; i < playerIds.length; i++) {
@@ -1684,13 +1714,13 @@
                 
                 ctx.fillStyle = playerId === currentPlayer.target ? '#ff4d4d' : '#4d4dff';
                 ctx.beginPath();
-                ctx.arc(player.x, player.y, 15, 0, Math.PI * 2);
+                ctx.arc(player.x || 400, player.y || 300, 15, 0, Math.PI * 2);
                 ctx.fill();
                 
                 // Dessiner le nom
                 ctx.fillStyle = '#ffffff';
                 ctx.font = '12px Arial';
-                ctx.fillText(player.name, player.x - 20, player.y - 20);
+                ctx.fillText(player.name, (player.x || 400) - 20, (player.y || 300) - 20);
             }
             
             // Dessiner le joueur actuel
@@ -1725,16 +1755,13 @@
             
             // Boucle de déplacement
             const moveLoop = setInterval(() => {
-                if (gameState !== 'playing') {
-                    clearInterval(moveLoop);
-                    return;
-                }
+                if (gameState !== 'playing') return;
                 
                 let dx = 0, dy = 0;
-                if (keys.ArrowUp || keys.w) dy -= 3;
-                if (keys.ArrowDown || keys.s) dy += 3;
-                if (keys.ArrowLeft || keys.a) dx -= 3;
-                if (keys.ArrowRight || keys.d) dx += 3;
+                if (keys.ArrowUp || keys.w || keys.W) dy -= 3;
+                if (keys.ArrowDown || keys.s || keys.S) dy += 3;
+                if (keys.ArrowLeft || keys.a || keys.A) dx -= 3;
+                if (keys.ArrowRight || keys.d || keys.D) dx += 3;
                 
                 // Normaliser les diagonales
                 if (dx !== 0 && dy !== 0) {
@@ -1743,16 +1770,20 @@
                 }
                 
                 // Mettre à jour la position
-                currentPlayer.x = Math.max(15, Math.min(mapWidth - 15, currentPlayer.x + dx));
-                currentPlayer.y = Math.max(15, Math.min(mapHeight - 15, currentPlayer.y + dy));
-                
-                // Envoyer la mise à jour au serveur
-                socket.emit('playerUpdate', {
-                    roomId: gameRoom.id,
-                    playerId: currentUser.id,
-                    x: currentPlayer.x,
-                    y: currentPlayer.y
-                });
+                if (dx !== 0 || dy !== 0) {
+                    currentPlayer.x = Math.max(15, Math.min(mapWidth - 15, currentPlayer.x + dx));
+                    currentPlayer.y = Math.max(15, Math.min(mapHeight - 15, currentPlayer.y + dy));
+                    
+                    // Envoyer la mise à jour au serveur
+                    if (gameRoom) {
+                        socket.emit('playerUpdate', {
+                            roomId: gameRoom.id,
+                            playerId: currentUser.id,
+                            x: currentPlayer.x,
+                            y: currentPlayer.y
+                        });
+                    }
+                }
             }, 1000/60);
         }
 
@@ -1764,7 +1795,7 @@
             const target = players[currentPlayer.target];
             if (!target || !target.alive) return;
             
-            const distance = Math.hypot(currentPlayer.x - target.x, currentPlayer.y - target.y);
+            const distance = Math.hypot(currentPlayer.x - (target.x || 400), currentPlayer.y - (target.y || 300));
             if (distance > 50) return;
             
             // Envoyer l'assassinat au serveur
@@ -1777,12 +1808,12 @@
 
         // Interagir avec l'environnement
         function interact() {
-            // À implémenter selon les besoins
+            console.log('Interaction...');
         }
 
         // Activer/désactiver le chat vocal
         function toggleVoiceChat() {
-            // À implémenter selon les besoins
+            console.log('Chat vocal...');
         }
 
         // Afficher/masquer la carte
@@ -1834,7 +1865,8 @@
             // Retour au lobby après 5 secondes
             setTimeout(() => {
                 gameContainer.style.display = 'none';
-                lobbyContainer.style.display = 'block';
+                showLobby();
+                loadRooms();
             }, 5000);
         }
 
@@ -1880,8 +1912,8 @@
                 const player = players[playerId];
                 if (!player.alive) continue;
                 
-                const cellX = Math.floor((player.x / mapWidth) * 10);
-                const cellY = Math.floor((player.y / mapHeight) * 10);
+                const cellX = Math.floor(((player.x || 400) / mapWidth) * 10);
+                const cellY = Math.floor(((player.y || 300) / mapHeight) * 10);
                 const cellIndex = cellY * 10 + cellX;
                 
                 if (cellIndex >= 0 && cellIndex < 100) {
